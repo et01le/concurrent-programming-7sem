@@ -1,0 +1,2 @@
+My implementation of Strassen's algorithm is quite inefficient,
+since it allocates too much memory where it can be avoided
