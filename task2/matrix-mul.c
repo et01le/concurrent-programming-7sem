@@ -82,7 +82,7 @@ bool run_calulations(bool demo) {
     return TRUE;
 } 
 
-// Faced some troubles using the built-in functions, so implemented them myself
+// Faced some troubles using built-in functions, so implemented them myself
 // My implementation obviously has some memory redundancy
 void* allocate_aligned_mem(size_t size_in_bytes, size_t alignment) {
     void* init_memory = malloc(size_in_bytes + sizeof(void*) + alignment - 1);
@@ -182,11 +182,11 @@ double multiply_matrices(double* left_matrix, double* right_matrix_transposed, d
             size_t column_offset = j * size;
 
             for (size_t k = 0; k < mul_iter_amount; k++) {
-                __m256d temp_prev = _mm256_loadu_pd(temp_vector);
-                __m256d row       = _mm256_loadu_pd(&left_matrix[row_offset + k * VECTOR_SIZE]);
-                __m256d column    = _mm256_loadu_pd(&right_matrix_transposed[column_offset + k * VECTOR_SIZE]);
+                __m256d temp_prev = _mm256_load_pd(temp_vector);
+                __m256d row       = _mm256_load_pd(&left_matrix[row_offset + k * VECTOR_SIZE]);
+                __m256d column    = _mm256_load_pd(&right_matrix_transposed[column_offset + k * VECTOR_SIZE]);
                 __m256d temp      = _mm256_fmadd_pd(row, column, temp_prev);
-                _mm256_storeu_pd(temp_vector, temp);
+                _mm256_store_pd(temp_vector, temp);
             }
 
             double result_element = 0;

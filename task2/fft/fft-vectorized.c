@@ -5,10 +5,15 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <string.h>
+#include <x86intrin.h>
 
 #define FALSE 0
 #define TRUE 1
 typedef short bool;
+
+#define VAR_SIZE 256                                         // Size of utilized vector registry variables in bits
+#define ALIGNMENT_SIZE (VAR_SIZE / 8) // = 32                // In bytes
+#define VECTOR_SIZE (VAR_SIZE / (sizeof(double) * 8)) // = 4 // In double values
 
 #define APPROXIMATION_ORDER 16
 double APPROXIMATION_FACTOR;
@@ -41,6 +46,9 @@ double* convert_to_abs(struct vector* values, size_t size);
 bool write_to_file(double* array, size_t size, const char* file_name);
 void print_array(double* array, size_t size);
 void print_complex_array(struct vector* array, size_t size, bool normalize);
+
+void free_aligned_mem(void* memory);
+void* allocate_aligned_mem(size_t size_in_bytes, size_t alignment);
 
 // In order to comprehend my iplementation, please refer to Wikipedia pages for Cooley–Tukey FFT algorithm & CORDIC algorithm,
 // as those have been the main source of my inspiration 
@@ -78,6 +86,28 @@ int main() {
     return 0;
 }
 
+// Faced some troubles using built-in functions, so implemented them myself.
+// My implementation obviously has some memory redundancy.
+void* allocate_aligned_mem(size_t size_in_bytes, size_t alignment) {
+    void* init_memory = malloc(size_in_bytes + sizeof(void*) + alignment - 1);
+    if (init_memory == NULL) {
+        return NULL;
+    }
+    size_t offset = alignment - ((sizeof(void*) + ((size_t) init_memory)) % alignment);
+    if (offset == alignment) {
+        offset = 0;
+    }
+    offset += sizeof(void*);
+    void* memory = init_memory + offset;
+    *(void**) (memory - sizeof(void*)) = init_memory;
+    return memory;
+} 
+
+void free_aligned_mem(void* memory) {
+    void* init_memory = *(void**) (memory - sizeof(void*));
+    free(init_memory);
+}
+
 // Computation of complex exponent (or rather trigonometric functions sin & cos) can be regarded as
 // the bottleneck of dicrete Fourier transform (DFT), thus becoming the main target for vectorization.
 // Specifically, we will try to vectorize conventional CORDIC alogrithm for sin & cos computation.
@@ -109,14 +139,11 @@ struct vector get_unit_vector_1st_quadrant(double angle) {
     int rotation_direction = 1; // First rotation is conterclockwise, since we want to stay in [0, pi/2]
     double current_angle = APPROXIMATION_ANGLES[0]; // pi/4
 
-    double elem11, elem12, elem21, elem22; 
     // Initializing rotation matrix (first rotation by pi/4 = APPROXIMATION_ANGLES[0])
-    double elem11_prev =  1;
-    double elem12_prev = -1; // -rotation_direction * TANGENT_VALUES[0] = -1
-    double elem21_prev =  1;
-    double elem22_prev =  1; //  rotation_direction * TANGENT_VALUES[0] =  1
+    double matrix[4] = {1, -1, 1, 1};
+    double temp[4]; 
     
-    for (int i = 1; i < APPROXIMATION_ORDER; i++) {
+     for (int i = 1; i < APPROXIMATION_ORDER; i++) {
 
         // Determining direction of next rotation
         if (angle >= current_angle) {
@@ -129,18 +156,24 @@ struct vector get_unit_vector_1st_quadrant(double angle) {
 
         // Multiplying rotation matrices
         double rotation_factor = rotation_direction * TANGENT_VALUES[i];
-        elem11 = elem11_prev - rotation_factor * elem21_prev;
-        elem12 = elem12_prev - rotation_factor * elem22_prev;
-        elem21 = rotation_factor * elem11_prev + elem21_prev;
-        elem22 = rotation_factor * elem12_prev + elem22_prev;
-        elem11_prev = elem11;
-        elem12_prev = elem12;
-        elem21_prev = elem21;
-        elem22_prev = elem22;
+
+        __m256d previous = _mm256_loadu_pd(matrix);
+        temp[0] = matrix[2];
+        temp[1] = matrix[3];
+        temp[2] = matrix[0];
+        temp[3] = matrix[1];
+        __m256d first_multiple = _mm256_loadu_pd(temp);
+        temp[0] = -rotation_factor;
+        temp[1] = -rotation_factor;
+        temp[2] =  rotation_factor;
+        temp[3] =  rotation_factor;
+        __m256d second_multiple = _mm256_loadu_pd(temp);
+        __m256d product = _mm256_fmadd_pd(first_multiple, second_multiple, previous);
+        _mm256_storeu_pd(matrix, product);
     }
 
     // matrix * [1, 0]^T = 1st column of matrix + multiplying by the factor
-    struct vector result = {APPROXIMATION_FACTOR * elem11, APPROXIMATION_FACTOR * elem21}; 
+    struct vector result = {APPROXIMATION_FACTOR * matrix[0], APPROXIMATION_FACTOR * matrix[2]}; 
     return result;
 }
 
@@ -209,7 +242,6 @@ void test_cordic_algorithm() {
     printf("Test run finised\n");
 }
 
-// TO VECTORIZE?
 struct vector complex_sum(struct vector a, struct vector b, bool substract) {
     if (!substract) {
         struct vector sum = {a.x + b.x, a.y + b.y};
@@ -221,7 +253,6 @@ struct vector complex_sum(struct vector a, struct vector b, bool substract) {
     
 }
 
-// TO VECTORIZE?
 struct vector complex_product(struct vector a, struct vector b) { 
     struct vector product = {a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x};
     return product;
@@ -363,7 +394,7 @@ struct vector* fourier_transform(double* sample_raw, size_t sample_size, int max
     spectrum = sample; // Pointers are shuffled a bit during calculations
     sample = temp_ptr;
 
-    printf("Calculated unvectorized FFT within %.3f seconds\n", stop - start);
+    printf("Calculated vectorized FFT within %.3f seconds\n", stop - start);
 
     free(sample);
     return spectrum;
