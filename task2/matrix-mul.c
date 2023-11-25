@@ -18,8 +18,8 @@ typedef short bool;
 void free_aligned_mem(void* memory);
 void* allocate_aligned_mem(size_t size_in_bytes, size_t alignment);
 double* allocate_double_array(size_t size);
-void fill_double_array(double* matrix, size_t size, unsigned int seed);
-void fill_double_array_zeros(double* matrix, size_t total_size);
+void fill_double_array(double* array, size_t size, unsigned int seed);
+void fill_double_array_zeros(double* array, size_t total_size);
 void print_matrix(double* matrix, size_t size, bool transposed);
 double multiply_matrices_unvectorized(double* left_matrix, double* right_matrix_transposed, double* result_matrix, size_t size);
 double multiply_matrices(double* left_matrix, double* right_matrix_transposed, double* result_matrix, size_t size);
@@ -41,7 +41,7 @@ bool run_calulations(bool demo) {
     double* right_matrix_transposed  = allocate_double_array(total_size);
     double* result_matrix = allocate_double_array(total_size);
     if (left_matrix == NULL || right_matrix_transposed == NULL || result_matrix == NULL) {
-        return 1;
+        return FALSE;
     }
     fill_double_array(left_matrix, total_size, time(NULL));
     fill_double_array(right_matrix_transposed, total_size, time(NULL) + 1);
@@ -105,26 +105,26 @@ void free_aligned_mem(void* memory) {
 }
 
 double* allocate_double_array(size_t total_size) {
-    double* matrix = (double*) allocate_aligned_mem(total_size * sizeof(double), ALIGNMENT_SIZE);
-    if (matrix == NULL) {
+    double* array = (double*) allocate_aligned_mem(total_size * sizeof(double), ALIGNMENT_SIZE);
+    if (array == NULL) {
         printf("FATAL: Unable to allocate memory\n");
         return NULL;
     }
-    return matrix;
+    return array;
 }
 
-void fill_double_array(double* matrix, size_t total_size, unsigned int seed) {
+void fill_double_array(double* array, size_t total_size, unsigned int seed) {
     srand(seed);
     for (size_t i = 0; i < total_size; i++) {
         int sign = rand() % 2 == 0 ? 1 : -1;    // rand() returns an integer between 0 and RAND_MAX (both included)
         double value = (rand() % 1000) / 100.0; // Apparently, RAND_MAX=32767 for my system
-        matrix[i] = value * sign;
+        array[i] = value * sign;
     }
 }
 
-void fill_double_array_zeros(double* matrix, size_t total_size) {
+void fill_double_array_zeros(double* array, size_t total_size) {
     for (size_t i = 0; i < total_size; i++) {
-        matrix[i] = 0;
+        array[i] = 0;
     }
 }
 
