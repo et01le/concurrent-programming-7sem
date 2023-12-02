@@ -46,12 +46,6 @@ bool run_calulations(bool demo) {
     fill_double_array(left_matrix, total_size, time(NULL));
     fill_double_array(right_matrix_transposed, total_size, time(NULL) + 1);
 
-    double time_unvectorized = multiply_matrices_unvectorized(left_matrix, right_matrix_transposed, result_matrix, size);
-    double time = multiply_matrices(left_matrix, right_matrix_transposed, result_matrix, size);
-    if (time < 0) { // Indicates error
-        return FALSE;
-    }
-
     if (demo) {
 
         printf("DEMO MODE for square matrices of size = %d\n", size);
@@ -59,6 +53,12 @@ bool run_calulations(bool demo) {
         print_matrix(left_matrix, size, FALSE);
         printf("--- Right matrix ---\n");
         print_matrix(right_matrix_transposed, size, TRUE);
+
+        double time = multiply_matrices(left_matrix, right_matrix_transposed, result_matrix, size);
+        if (time < 0) { // Indicates error
+            return FALSE;
+        }
+
         printf("--- Vectorized result ---\n");
         print_matrix(result_matrix, size, FALSE);
 
@@ -68,6 +68,12 @@ bool run_calulations(bool demo) {
         print_matrix(result_matrix, size, FALSE);
 
     } else {
+
+        double time_unvectorized = multiply_matrices_unvectorized(left_matrix, right_matrix_transposed, result_matrix, size);
+        double time = multiply_matrices(left_matrix, right_matrix_transposed, result_matrix, size);
+        if (time < 0) { // Indicates error
+            return FALSE;
+        }
 
         printf("TIMED MODE for square matrices of size = %d\n", size);
         printf("Unvectorized calculations took %.3f seconds\n", time_unvectorized);
@@ -158,6 +164,7 @@ double multiply_matrices_unvectorized(double* left_matrix, double* right_matrix_
             for (size_t k = 0; k < size; k++) {
                 result_element += left_matrix[row_offset + k] * right_matrix_transposed[column_offset + k];
             }
+            result_matrix[row_offset + j] = result_element;
         }
     }
     double stop = omp_get_wtime();

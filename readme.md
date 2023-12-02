@@ -27,7 +27,7 @@ gcc -fopenmp -mfma -o matrix-mul.exe matrix-mul.c # -mfma for intrinsics
 
 task2/fft
 ```bash
-gcc -fopenmp -o fft.exe fft.c
+gcc -fopenmp -mfma -o fft.exe fft.c
 ./fft.exe   # produces spectrum.txt
 ./script.py # produces spectrum.png based on spectrum.txt
 # same steps for fft-vectorized.c
